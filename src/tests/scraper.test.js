@@ -1,12 +1,16 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import axios from "axios"
-import { scrapeEventDetails } from "../services/eventScraper.js"
+import { ScrapeEventDetails } from "../Service/eventScraper"
 
 vi.mock("axios")
 
 describe("Event Scraper Service", () => {
-  it("Should extract title, description, date and location fro HTML", async () => {
-    const mockHtml = `
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("Should extract title, description, date and location from HTML", async () => {
+    const fakePageHTML = `
       <html>
         <body>
           <h1 class="entry-title">IT-pub med Neurawave</h1>
@@ -20,11 +24,14 @@ describe("Event Scraper Service", () => {
       </html>
     `
 
-    axios.get.mockReturnValue({ data: mockHtml })
+    axios.get.mockReturnValue({ data: fakePageHTML })
 
-    const data = await scraperEventDetais("https://fake-url.com")
+    const scraper = new ScrapeEventDetails()
 
-    expect(data).toEqual({
+    // --- ACT ---
+    const details = await scraper.scrapeDetails("https://fake-url.com/event")
+
+    expect(details).toEqual({
       title: "IT-pub med Neurawave",
       description: expect.stringContaining("Välkommen på IT-pub"),
       date: "2/12 17:00 - 20:00",
