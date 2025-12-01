@@ -5,6 +5,8 @@ export class CheckPub {
   constructor() {
     this.url = process.env.KSP
     this.webhookUrl = process.env.DISCORD_WEBHOOK_URL
+
+    this.lastKnownEvent = ""
   }
 
   async check() {
@@ -14,12 +16,18 @@ export class CheckPub {
       const links = $("a")
 
       for (const element of links) {
-        const text = $(element).text()
+        const text = $(element).text().trim()
 
         if (text.toLowerCase().includes("it-pub")) {
+          if (text === this.lastKnownEvent) {
+            return
+          }
+
           await axios.post(this.webhookUrl, {
             content: `Found: ${text}`,
           })
+
+          this.lastKnownEvent = text
           return
         }
       }
