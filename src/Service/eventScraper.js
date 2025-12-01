@@ -31,7 +31,6 @@ export class ScrapeEventDetails {
         imageUrl,
       }
     } catch (error) {
-      console.error("Scraper fail:", error.message)
       return null
     }
   }

@@ -6,40 +6,44 @@
  */
 
 import express from "express"
-import dotenv from "dotenv"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import helmet from "helmet" // Valfritt: Om du vill installera 'helmet' för extra säkerhet
 import router from "./routers/routes.js"
+import { startScheduler } from "./scheduler/pubScheduler.js"
 
+// Ladda miljövariabler krävs inte här om du kör via Railway/Node direkt med --env-file,
+// men bra att ha kvar om du kör lokalt med dotenv.
+import dotenv from "dotenv"
 dotenv.config()
 
 try {
-  // Create Express application.
   const app = express()
-  app.use(express.json())
+  app.use(helmet)
 
-  // Set the base URL to use for all relative URLs in a document.
-  const baseURL = process.env.BASE_URL || "/"
+  // SÄKERHET: Dölj att vi använder Express
+  app.disable("x-powered-by")
 
-  app.use(express.urlencoded({ extended: false }))
-
-  // Middleware to pass base URL to views
+  // SÄKERHET: Grundläggande headers (valfritt men bra)
   app.use((req, res, next) => {
-    res.locals.baseURL = baseURL
+    res.setHeader("X-Content-Type-Options", "nosniff")
+    res.setHeader("X-Frame-Options", "DENY")
     next()
   })
 
-  // Register router
+  app.use(express.json())
+  app.use(express.urlencoded({ extended: false }))
+
+  // Registrera router
   app.use("/", router)
 
-  // Start the server.
-  const server = app.listen(process.env.PORT, () => {
-    console.info(
-      `Frontend running at http://localhost:${server.address().port}`
-    )
-    console.info("Press Ctrl-C to terminate...")
+  // Starta schemaläggaren (Automatiseringen)
+  startScheduler()
+
+  // Starta servern
+  const PORT = process.env.PORT
+  const server = app.listen(PORT, () => {
+    console.info(`Server is running on port ${PORT}`) // Denna logg är okej att ha vid start
   })
 } catch (error) {
-  console.error("Error starting the server:", error)
-  process.exit(1) // Exit the process with a failure code
+  console.error("Critical error starting server:", error.message)
+  process.exit(1)
 }

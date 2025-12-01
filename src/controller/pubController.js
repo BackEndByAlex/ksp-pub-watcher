@@ -6,12 +6,16 @@ export class CheckPub {
   constructor() {
     this.url = process.env.KSP
     this.webhookUrl = process.env.DISCORD_WEBHOOK_URL
-
     this.lastKnownEvent = ""
     this.scraper = new ScrapeEventDetails()
   }
 
   async check() {
+    if (!this.url || !this.webhookUrl) {
+      console.error("Missing environment variables (KSP or Webhook).")
+      return
+    }
+
     try {
       const { data } = await axios.get(this.url)
       const $ = cheerio.load(data)
@@ -19,7 +23,6 @@ export class CheckPub {
 
       for (const element of links) {
         const link = $(element).attr("href")
-
         const textContent = $(element).text().trim()
         const titleAttr = $(element).attr("title") || ""
         const ariaLabel = $(element).attr("aria-label") || ""
@@ -30,53 +33,48 @@ export class CheckPub {
         if (link && combinedText.includes("it-pub")) {
           if (link === this.lastKnownEvent) return
 
-          console.log(`🎯 Bingo! Hittade pub på länk: ${link}`)
-
           const details = await this.scraper.scrapeDetails(link)
 
           if (details) {
             await this.sendDetailedAlert(details, link)
           } else {
-
             const displayText = textContent || titleAttr || "Nytt Event"
             await axios.post(this.webhookUrl, {
               content: `Found: ${displayText}\nLink: ${link}`,
             })
           }
 
-          this.lastKnownEvent = link 
+          this.lastKnownEvent = link
           return
         }
       }
     } catch (error) {
-      console.error(
-        "Något gick fel i check():",
-        error.response ? error.response.data : error.message
-      )
+      console.error("Error in check routine:", error.message)
     }
   }
 
   async sendDetailedAlert(details, link) {
-    const embed = {
-      title: `🍺 ${details.title}`,
-      url: link,
+    try {
+      const embed = {
+        title: `🍺 ${details.title}`,
+        url: link,
+        description: `${details.description}\n\n👉 [Läs mer och anmäl dig här](${link})`,
+        color: 3066993, // Grön
+        image: {
+          url: details.imageUrl,
+        },
+        fields: [
+          { name: "📅 När?", value: details.date, inline: true },
+          { name: "📍 Var?", value: details.location, inline: true },
+        ],
+        footer: { text: "Pub-Spanaren • Kalmar Science Park" },
+      }
 
-      description: `${details.description}\n\n👉 [Läs mer och anmäl dig här](${link})`,
-      color: 3066993,
-
-      image: {
-        url: details.imageUrl,
-      },
-
-      fields: [
-        { name: "📅 När?", value: details.date, inline: true },
-        { name: "📍 Var?", value: details.location, inline: true },
-      ],
-      footer: { text: "Pub-Spanaren • Kalmar Science Park" },
+      await axios.post(this.webhookUrl, {
+        embeds: [embed],
+      })
+    } catch (error) {
+      console.error("Failed to send Discord alert:", error.message)
     }
-
-    await axios.post(this.webhookUrl, {
-      embeds: [embed],
-    })
   }
 }
