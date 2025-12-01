@@ -63,4 +63,25 @@ describe("Pub Logic", () => {
 
     expect(axios.post).toHaveBeenCalledTimes(1)
   })
+
+  it("Should include the URL link in the Dicord message", async () => {
+    const expectedLink = "https://kalmarsciencepark.se/event/party-time"
+    const fakeHTML = `
+      <html><body>
+        <a href="${expectedLink}">Super IT-pub</a>
+      </body></html>
+    `
+
+    axios.get.mockReturnValue({ data: fakeHTML })
+    const pubWatcher = new CheckPub()
+
+    await pubWatcher.check()
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        content: expect.stringContaining(expectedLink),
+      })
+    )
+  })
 })
