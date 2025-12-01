@@ -17,6 +17,7 @@ export class CheckPub {
 
       for (const element of links) {
         const text = $(element).text().trim()
+        const link = $(element).attr("href")
 
         if (text.toLowerCase().includes("it-pub")) {
           if (text === this.lastKnownEvent) {
@@ -24,7 +25,7 @@ export class CheckPub {
           }
 
           await axios.post(this.webhookUrl, {
-            content: `Found: ${text}`,
+            content: `Found: ${text}\nLink:  ${link}`,
           })
 
           this.lastKnownEvent = text
