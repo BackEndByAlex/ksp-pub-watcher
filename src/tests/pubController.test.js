@@ -7,6 +7,8 @@ vi.mock("axios")
 describe("Pub Logic", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.DISCORD_WEBHOOK_URL = "https://fake-discord-url.com"
+    process.env.KSP = "https://fake-ksp-url.com"
   })
 
   it("Should send notice to Disord if HTML 'It-pub'", async () => {
@@ -23,14 +25,16 @@ describe("Pub Logic", () => {
 
     axios.get.mockReturnValue({ data: fakeHTML })
 
-    await new CheckPub()
+    const pubWatcher = new CheckPub()
+
+    await pubWatcher.check()
 
     expect(axios.post).toHaveBeenCalledTimes(1)
 
     expect(axios.post).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        content: expect.stringContaining("IT-pub"),
+        content: expect.stringContaining("It-pub"),
       })
     )
   })
