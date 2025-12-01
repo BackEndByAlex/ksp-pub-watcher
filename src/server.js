@@ -1,5 +1,5 @@
 /**
- * @file The starting point of the frontend application.
+ * @file The starting point of the application.
  * @module src/server
  * @author Alexandru Antonescu
  * @version 1.0.0

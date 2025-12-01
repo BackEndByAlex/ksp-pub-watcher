@@ -18,28 +18,41 @@ export class CheckPub {
       const links = $("a")
 
       for (const element of links) {
-        const text = $(element).text().trim()
         const link = $(element).attr("href")
 
-        if (text.toLowerCase().includes("it-pub")) {
-          if (text === this.lastKnownEvent) return
+        const textContent = $(element).text().trim()
+        const titleAttr = $(element).attr("title") || ""
+        const ariaLabel = $(element).attr("aria-label") || ""
+
+        const combinedText =
+          `${textContent} ${titleAttr} ${ariaLabel}`.toLowerCase()
+
+        if (link && combinedText.includes("it-pub")) {
+          if (link === this.lastKnownEvent) return
+
+          console.log(`🎯 Bingo! Hittade pub på länk: ${link}`)
 
           const details = await this.scraper.scrapeDetails(link)
 
           if (details) {
             await this.sendDetailedAlert(details, link)
           } else {
+
+            const displayText = textContent || titleAttr || "Nytt Event"
             await axios.post(this.webhookUrl, {
-              content: `Found: ${text}\nLink:  ${link}`,
+              content: `Found: ${displayText}\nLink: ${link}`,
             })
           }
 
-          this.lastKnownEvent = text
+          this.lastKnownEvent = link 
           return
         }
       }
     } catch (error) {
-      throw new Error("Something went wrong", error)
+      console.error(
+        "Något gick fel i check():",
+        error.response ? error.response.data : error.message
+      )
     }
   }
 
@@ -47,14 +60,19 @@ export class CheckPub {
     const embed = {
       title: `🍺 ${details.title}`,
       url: link,
-      description: details.description,
-      color: 3066993, // Grön färg
+
+      description: `${details.description}\n\n👉 [Läs mer och anmäl dig här](${link})`,
+      color: 3066993,
+
+      image: {
+        url: details.imageUrl,
+      },
+
       fields: [
-        { name: "📅 Datum", value: details.date, inline: true },
-        { name: "⏰ Tid", value: details.time, inline: true },
-        { name: "📍 Plats", value: details.location, inline: true },
+        { name: "📅 När?", value: details.date, inline: true },
+        { name: "📍 Var?", value: details.location, inline: true },
       ],
-      footer: { text: "Pub-Spanaren" },
+      footer: { text: "Pub-Spanaren • Kalmar Science Park" },
     }
 
     await axios.post(this.webhookUrl, {
