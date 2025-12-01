@@ -1,12 +1,13 @@
 import axios from "axios"
 import * as cheerio from "cheerio"
 import { ScrapeEventDetails } from "../Service/eventScraper.js"
+import { EventCache } from "../storage/eventCache.js"
 
 export class CheckPub {
   constructor() {
     this.url = process.env.KSP
     this.webhookUrl = process.env.DISCORD_WEBHOOK_URL
-    this.lastKnownEvent = ""
+    this.cache = new EventCache()
     this.scraper = new ScrapeEventDetails()
   }
 
@@ -31,7 +32,9 @@ export class CheckPub {
           `${textContent} ${titleAttr} ${ariaLabel}`.toLowerCase()
 
         if (link && combinedText.includes("it-pub")) {
-          if (link === this.lastKnownEvent) return
+          const lastSeen = await this.cache.getLastLink()
+
+          if (link === lastSeen) return
 
           const details = await this.scraper.scrapeDetails(link)
 
@@ -44,7 +47,7 @@ export class CheckPub {
             })
           }
 
-          this.lastKnownEvent = link
+          await this.cache.saveLastLink(link)
           return
         }
       }
