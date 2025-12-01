@@ -17,7 +17,7 @@ dotenv.config()
 
 try {
   const app = express()
-  app.use(helmet)
+  app.use(helmet())
 
   // SÄKERHET: Dölj att vi använder Express
   app.disable("x-powered-by")
