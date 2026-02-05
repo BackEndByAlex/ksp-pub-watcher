@@ -6,44 +6,71 @@
  */
 
 import express from "express"
-import helmet from "helmet" // Valfritt: Om du vill installera 'helmet' för extra säkerhet
+import helmet from "helmet"
 import router from "./routers/routes.js"
-import { startScheduler } from "./scheduler/pubScheduler.js"
+import { startScheduler, runCheckOnce } from "./scheduler/pubScheduler.js"
 
-// Ladda miljövariabler krävs inte här om du kör via Railway/Node direkt med --env-file,
-// men bra att ha kvar om du kör lokalt med dotenv.
 import dotenv from "dotenv"
 dotenv.config()
 
-try {
-  const app = express()
-  app.use(helmet())
+// ==================================================================
+// DUAL MODE: Server Mode vs Cron Mode
+// ==================================================================
+// Railway Cron Schedule kommer sätta CRON_MODE=true
+const isCronMode = process.env.CRON_MODE === "true"
 
-  // SÄKERHET: Dölj att vi använder Express
-  app.disable("x-powered-by")
+if (isCronMode) {
+  // ========== CRON MODE ==========
+  // Kör pub check EN GÅNG och avsluta sedan
+  console.log("🕐 Running in CRON MODE - will execute once and exit")
+  console.log(`⏰ Started at: ${new Date().toISOString()}`)
 
-  // SÄKERHET: Grundläggande headers (valfritt men bra)
-  app.use((req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff")
-    res.setHeader("X-Frame-Options", "DENY")
-    next()
-  })
+  runCheckOnce()
+    .then(() => {
+      console.log("✅ Pub check completed successfully")
+      console.log(`⏰ Finished at: ${new Date().toISOString()}`)
+      process.exit(0)
+    })
+    .catch((error) => {
+      console.error("❌ Pub check failed:", error.message)
+      console.error(error.stack)
+      process.exit(1)
+    })
+} else {
+  // ========== SERVER MODE ==========
+  // Kör kontinuerligt med Express server + scheduler backup
+  console.log("🚀 Running in SERVER MODE - continuous operation")
 
-  app.use(express.json())
-  app.use(express.urlencoded({ extended: false }))
+  try {
+    const app = express()
+    app.use(helmet())
 
-  // Registrera router
-  app.use("/", router)
+    // SÄKERHET: Dölj att vi använder Express
+    app.disable("x-powered-by")
 
-  // Starta schemaläggaren (Automatiseringen)
-  startScheduler()
+    // SÄKERHET: Grundläggande headers
+    app.use((req, res, next) => {
+      res.setHeader("X-Content-Type-Options", "nosniff")
+      res.setHeader("X-Frame-Options", "DENY")
+      next()
+    })
 
-  // Starta servern
-  const PORT = process.env.PORT
-  const server = app.listen(PORT, () => {
-    console.info(`Server is running on port ${PORT}`) // Denna logg är okej att ha vid start
-  })
-} catch (error) {
-  console.error("Critical error starting server:", error.message)
-  process.exit(1)
+    app.use(express.json())
+    app.use(express.urlencoded({ extended: false }))
+
+    // Registrera router
+    app.use("/", router)
+
+    // Starta schemaläggaren (Backup om Railway Cron inte triggar)
+    startScheduler()
+
+    // Starta servern
+    const PORT = process.env.PORT || 3000
+    const server = app.listen(PORT, () => {
+      console.info(`✅ Server is running on port ${PORT}`)
+    })
+  } catch (error) {
+    console.error("❌ Critical error starting server:", error.message)
+    process.exit(1)
+  }
 }
